@@ -38,7 +38,7 @@ class EncoderLayer(nn.Module):
 
     def forward(self, x, attn_mask=None, tau=None, delta=None):
         new_x, attn = self.attention(
-            x, x, x,
+            x, x, x, # queries, keys, values 都是 [32, 96, 512]
             attn_mask=attn_mask,
             tau=tau, delta=delta
         )

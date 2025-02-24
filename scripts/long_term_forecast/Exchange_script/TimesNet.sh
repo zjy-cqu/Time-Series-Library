@@ -1,5 +1,4 @@
-export CUDA_VISIBLE_DEVICES=7
-
+export CUDA_VISIBLE_DEVICES=1
 model_name=TimesNet
 
 python -u run.py \

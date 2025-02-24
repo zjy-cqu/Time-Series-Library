@@ -23,7 +23,10 @@ class PositionalEmbedding(nn.Module):
         self.register_buffer('pe', pe)
 
     def forward(self, x):
-        return self.pe[:, :x.size(1)]
+        # print("before pos embedding:", x.shape)
+        xx = self.pe[:, :x.size(1)]
+        # print("before token embedding:", xx.shape)
+        return xx
 
 
 class TokenEmbedding(nn.Module):
@@ -38,7 +41,9 @@ class TokenEmbedding(nn.Module):
                     m.weight, mode='fan_in', nonlinearity='leaky_relu')
 
     def forward(self, x):
+        # print("===========before token embedding:", x.shape)    # [32, 96, 7]
         x = self.tokenConv(x.permute(0, 2, 1)).transpose(1, 2)
+        # print("==========after token embedding:", x.shape)      # [32, 96, 512]
         return x
 
 
@@ -82,6 +87,7 @@ class TemporalEmbedding(nn.Module):
         self.month_embed = Embed(month_size, d_model)
 
     def forward(self, x):
+        # print("before t embedding:", x.shape)
         x = x.long()
         minute_x = self.minute_embed(x[:, :, 4]) if hasattr(
             self, 'minute_embed') else 0.
@@ -89,7 +95,11 @@ class TemporalEmbedding(nn.Module):
         weekday_x = self.weekday_embed(x[:, :, 2])
         day_x = self.day_embed(x[:, :, 1])
         month_x = self.month_embed(x[:, :, 0])
-
+        # print("min embedding:", minute_x.shape)
+        # print("hour embedding:", hour_x.shape)
+        # print("weekday embedding:", weekday_x.shape)
+        # print("day embedding:", day_x.shape)
+        # print("month embedding:", month_x.shape)
         return hour_x + weekday_x + day_x + month_x + minute_x
 
 
@@ -118,11 +128,12 @@ class DataEmbedding(nn.Module):
         self.dropout = nn.Dropout(p=dropout)
 
     def forward(self, x, x_mark):
-        if x_mark is None:
+        if x_mark is None: # 没有时间标记
             x = self.value_embedding(x) + self.position_embedding(x)
         else:
             x = self.value_embedding(
                 x) + self.temporal_embedding(x_mark) + self.position_embedding(x)
+        
         return self.dropout(x)
 
 

@@ -8,13 +8,21 @@ from layers.Conv_Blocks import Inception_Block_V1
 
 def FFT_for_Period(x, k=2):
     # [B, T, C]
+    # 一维离散傅里叶变换，沿T维度[B, T, C] --> [B, T//2+1, C]
     xf = torch.fft.rfft(x, dim=1)
     # find period by amplitudes
+    # 通过增幅寻找周期
+    # 在每个频率上的平均值,然后对所有频率取平均[B, T//2+1, C] --> [T//2+1]
     frequency_list = abs(xf).mean(0).mean(-1)
+    # 将第一个频率值设置为0(直流分量)
     frequency_list[0] = 0
+    # 在频率列表中找到前K个最大值的索引
     _, top_list = torch.topk(frequency_list, k)
+    # 将top_list张量转换为numpy数组
     top_list = top_list.detach().cpu().numpy()
+    # 通过将序列的总长度除以每个顶部频率,计算周期
     period = x.shape[1] // top_list
+    # 返回period,计算选定的顶部频率在最后一个维度C上的平均幅度[B, T//2+1, C] --> [B, k]
     return period, abs(xf).mean(-1)[:, top_list]
 
 
@@ -34,36 +42,54 @@ class TimesBlock(nn.Module):
         )
 
     def forward(self, x):
-        B, T, N = x.size()
+        B, T, N = x.size() # [32, 192, 16]
+        # print(f"B: {B}, T: {T}, N: {N}")
         period_list, period_weight = FFT_for_Period(x, self.k)
+        # print(f"period_list: {period_list}")      # [4 2 4 2 4]
+        # print(f"period_weight: {period_weight}")
 
         res = []
         for i in range(self.k):
+            # 取周期
             period = period_list[i]
-            # padding
+            # print(f"period: {period}") # 4
+            # padding操作
             if (self.seq_len + self.pred_len) % period != 0:
                 length = (
                                  ((self.seq_len + self.pred_len) // period) + 1) * period
                 padding = torch.zeros([x.shape[0], (length - (self.seq_len + self.pred_len)), x.shape[2]]).to(x.device)
+                # 沿len维度拼接
                 out = torch.cat([x, padding], dim=1)
             else:
                 length = (self.seq_len + self.pred_len)
                 out = x
+            # print(f"out: {out.shape}") # [32, 192, 16]
+
             # reshape
             out = out.reshape(B, length // period, period,
                               N).permute(0, 3, 1, 2).contiguous()
+            # print(f"after reshape: out: {out.shape}")   # [32, 16, 192/4=48, 4]
+
             # 2D conv: from 1d Variation to 2d Variation
+            # 进入卷积网络
             out = self.conv(out)
+            # print(f"after conv: out: {out.shape}")      # [32, 16, 48, 4]
+
             # reshape back
             out = out.permute(0, 2, 3, 1).reshape(B, -1, N)
+            # print(f"reshape out: out: {out.shape}")     # [32, 192, 16]
             res.append(out[:, :(self.seq_len + self.pred_len), :])
+            # print(f"res out: {res[-1].shape}")          # [32, 192, 16]
+        # 将结果沿feature维度拼接
         res = torch.stack(res, dim=-1)
-        # adaptive aggregation
+        # adaptive aggregation 自适应聚合
         period_weight = F.softmax(period_weight, dim=1)
+        # 添加两个维度,重复使其与res维度一致
         period_weight = period_weight.unsqueeze(
             1).unsqueeze(1).repeat(1, T, N, 1)
+        # 沿feature维度求和
         res = torch.sum(res * period_weight, -1)
-        # residual connection
+        # residual connection残差连接
         res = res + x
         return res
 
@@ -109,8 +135,10 @@ class Model(nn.Module):
         x_enc /= stdev
 
         # embedding
+        # print("before data embedding:", x_enc.shape) # [32, 96, 7]
         enc_out = self.enc_embedding(x_enc, x_mark_enc)  # [B,T,C]
-        enc_out = self.predict_linear(enc_out.permute(0, 2, 1)).permute(
+        # print("after data embedding:", x_enc.shape)  # [32, 96, 16]
+        enc_out = self.predict_linear(enc_out.permute(0, 2, 1)).permute( # [32, 96+96=192, 16]
             0, 2, 1)  # align temporal dimension
         # TimesNet
         for i in range(self.layer):

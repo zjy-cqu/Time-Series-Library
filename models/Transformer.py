@@ -72,11 +72,20 @@ class Model(nn.Module):
 
     def forecast(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
         # Embedding
+        # print("x_enc:", x_enc.shape) # [32, 96, 7]
+        # print("x_dec:", x_dec.shape) # [32, 144, 7]
         enc_out = self.enc_embedding(x_enc, x_mark_enc)
-        enc_out, attns = self.encoder(enc_out, attn_mask=None)
 
+        # print("before encoder:", enc_out.shape) # [32, 96, 512]
+        enc_out, attns = self.encoder(enc_out, attn_mask=None)
+        # print("after encoder:", enc_out.shape) # [32, 96, 512]
+        # print("after encoder, attns:", attns.shape)  # attns = A = QK^T = [32, 8, 96, 96]
+
+        # print('====decode=====')
         dec_out = self.dec_embedding(x_dec, x_mark_dec)
+        # print("dec_out:", dec_out.shape) # [32, 144, 512]
         dec_out = self.decoder(dec_out, enc_out, x_mask=None, cross_mask=None)
+        # print("after decoder: dec_out:", dec_out.shape) # [32, 144, 7]
         return dec_out
 
     def imputation(self, x_enc, x_mark_enc, x_dec, x_mark_dec, mask):

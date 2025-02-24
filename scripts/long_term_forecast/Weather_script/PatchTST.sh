@@ -1,5 +1,4 @@
-export CUDA_VISIBLE_DEVICES=0
-
+export CUDA_VISIBLE_DEVICES=2
 model_name=PatchTST
 
 python -u run.py \

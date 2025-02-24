@@ -83,4 +83,9 @@ def data_provider(args, flag):
             shuffle=shuffle_flag,
             num_workers=args.num_workers,
             drop_last=drop_last)
+        # for i, (aa_x, aa_y, aa_x_mark, aa_y_mark) in enumerate(data_loader):
+        #     print(f"aa_x: {aa_x.shape}, aa_y: {aa_y.shape}, aa_x_mark: {aa_x_mark.shape}, aa_y_mark: {aa_y_mark.shape}")
+        
+        # aa_x: torch.Size([32, 96, 7]), aa_y: torch.Size([32, 144, 7]), aa_x_mark: torch.Size([32, 96, 4]), aa_y_mark: torch.Size([32, 144, 4])seq_x: (96, 7), seq_y: (144, 7), seq_x_mark: (96, 4), seq_y_mark: (144, 4)
+
         return data_set, data_loader

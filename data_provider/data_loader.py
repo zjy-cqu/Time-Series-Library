@@ -50,7 +50,7 @@ class Dataset_ETT_hour(Dataset):
         self.scaler = StandardScaler()
         df_raw = pd.read_csv(os.path.join(self.root_path,
                                           self.data_path))
-
+                                          
         border1s = [0, 12 * 30 * 24 - self.seq_len, 12 * 30 * 24 + 4 * 30 * 24 - self.seq_len]
         border2s = [12 * 30 * 24, 12 * 30 * 24 + 4 * 30 * 24, 12 * 30 * 24 + 8 * 30 * 24]
         border1 = border1s[self.set_type]
@@ -99,7 +99,8 @@ class Dataset_ETT_hour(Dataset):
         seq_y = self.data_y[r_begin:r_end]
         seq_x_mark = self.data_stamp[s_begin:s_end]
         seq_y_mark = self.data_stamp[r_begin:r_end]
-
+        # seq_x: (96, 7), seq_y: (144, 7), seq_x_mark: (96, 4), seq_y_mark: (144, 4)
+        # print(f"seq_x: {seq_x.shape}, seq_y: {seq_y.shape}, seq_x_mark: {seq_x_mark.shape}, seq_y_mark: {seq_y_mark.shape}")
         return seq_x, seq_y, seq_x_mark, seq_y_mark
 
     def __len__(self):

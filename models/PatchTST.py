@@ -80,6 +80,7 @@ class Model(nn.Module):
                 self.head_nf * configs.enc_in, configs.num_class)
 
     def forecast(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
+        print(f'x_enc: {x_enc.shape}x_mark_enc: {x_mark_enc.shape}x_dec: {x_dec.shape}x_mark_dec: {x_mark_dec.shape}')
         # Normalization from Non-stationary Transformer
         means = x_enc.mean(1, keepdim=True).detach()
         x_enc = x_enc - means

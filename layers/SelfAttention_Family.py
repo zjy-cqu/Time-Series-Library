@@ -6,7 +6,6 @@ from utils.masking import TriangularCausalMask, ProbMask
 from reformer_pytorch import LSHSelfAttention
 from einops import rearrange, repeat
 
-
 class DSAttention(nn.Module):
     '''De-stationary Attention'''
 
@@ -54,23 +53,30 @@ class FullAttention(nn.Module):
         self.dropout = nn.Dropout(attention_dropout)
 
     def forward(self, queries, keys, values, attn_mask, tau=None, delta=None):
+        # print("---------full attention----------")
         B, L, H, E = queries.shape
-        _, S, _, D = values.shape
+        # print(f"B: {B}, L: {L}, H: {H}, E: {E}") # B: 32, L: 96, H: 8, E: 64
+        _, S, _, D = values.shape                #        S: 96,       D: 64
+        # print(f"S: {S}, D: {D}")
         scale = self.scale or 1. / sqrt(E)
 
         scores = torch.einsum("blhe,bshe->bhls", queries, keys)
-
+        # print(f"SCORE: {scores.shape}")         # SCORE: torch.Size([32, 8, 96, 96])
         if self.mask_flag:
             if attn_mask is None:
                 attn_mask = TriangularCausalMask(B, L, device=queries.device)
 
             scores.masked_fill_(attn_mask.mask, -np.inf)
 
-        A = self.dropout(torch.softmax(scale * scores, dim=-1))
-        V = torch.einsum("bhls,bshd->blhd", A, values)
+        A = self.dropout(torch.softmax(scale * scores, dim=-1)) # A: torch.Size([32, 8, 96, 96])
+        V = torch.einsum("bhls,bshd->blhd", A, values) # [32, 8, 96, 96] × [32, 96, 8, 64]
+        # print(f"A: {A.shape}, V: {V.shape}") # V: torch.Size([32, 96, 8, 64])
+        
+        # np_tensor = A.cpu().detach().numpy()
+        # np.save("A.npy", np_tensor)
 
         if self.output_attention:
-            return V.contiguous(), A
+            return V.contiguous(), A  # attns = A = QK^T = [32, 8, 96, 96]
         else:
             return V.contiguous(), None
 
@@ -192,13 +198,21 @@ class AttentionLayer(nn.Module):
         self.n_heads = n_heads
 
     def forward(self, queries, keys, values, attn_mask, tau=None, delta=None):
+        # print("--------- attention layer----------")
         B, L, _ = queries.shape
         _, S, _ = keys.shape
         H = self.n_heads
+        # B: 32, L: 96, S: 96, H: 8, E: 64
 
+        # print("q,",queries.shape) # torch.Size([32, 96, 512])
+        # print("k,",queries.shape) # torch.Size([32, 96, 512])
+        # print("v,",queries.shape) # torch.Size([32, 96, 512])
         queries = self.query_projection(queries).view(B, L, H, -1)
         keys = self.key_projection(keys).view(B, S, H, -1)
         values = self.value_projection(values).view(B, S, H, -1)
+        # print("q,",queries.shape) # torch.Size([32, 96, 8, 64])
+        # print("k,",queries.shape) # torch.Size([32, 96, 8, 64])
+        # print("v,",queries.shape) # torch.Size([32, 96, 8, 64])
 
         out, attn = self.inner_attention(
             queries,
@@ -208,7 +222,9 @@ class AttentionLayer(nn.Module):
             tau=tau,
             delta=delta
         )
-        out = out.view(B, L, -1)
+        # print("===========")
+        # print(f"out: {out.shape}, attn: {attn}") # out: torch.Size([32, 96, 8, 64]), attn: None
+        out = out.view(B, L, -1) # out: torch.Size([32, 96, 512])
 
         return self.out_projection(out), attn
 
